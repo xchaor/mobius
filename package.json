@@ -1,0 +1,12 @@
+{
+  "name": "mobius-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Next-gen Loop Engineering AI Agent — built on OpenClaw & Hermes shoulders",
+  "scripts": {
+    "dev": "pnpm --filter @mobius/cli dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  }
+}

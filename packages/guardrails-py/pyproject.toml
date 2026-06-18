@@ -1,0 +1,8 @@
+[project]
+name = "mobius-guardrails"
+version = "0.1.0"
+description = "Mobius Agent security guardrails (Python) — Phase 2"
+requires-python = ">=3.12"
+
+# Phase 1: placeholder only, no implementation code.
+# Phase 2: Hermes-style Tool Guardrails + Injection Scan + Budget Control via gRPC.

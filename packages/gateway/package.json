@@ -1,0 +1,22 @@
+{
+  "name": "@mobius/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/gateway.ts",
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mobius/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  }
+}

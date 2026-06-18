@@ -1,0 +1,42 @@
+id: babysit-prs
+name: PR Babysitter
+description: 自动监控所有PR — CI挂了就修，有新Review就派子Agent处理
+trigger:
+  type: cron
+  cronExpression: "*/30 * * * *"
+execution:
+  maxIterations: 50
+  maxTokensPerIter: 50000
+  timeoutSeconds: 3600
+  useWorktree: true
+  worktreeMode: fresh
+eval:
+  threshold: 0.85
+  conditions:
+    - type: command_exit_code
+      command: gh pr checks --required
+      expected: 0
+      description: 所有CI检查通过
+  boundaryConditions:
+    - type: no_file_deleted
+      path: "."
+      description: No files deleted
+skills:
+  - code-review
+  - test-driven-development
+  - systematic-debugging
+mcpConnectors:
+  - github
+  - slack
+delegation:
+  maxDepth: 3
+  maxSubagents: 10
+  budgetPerNode: 200000
+memory:
+  autoNudge: true
+  autoSkillCreation: true
+  claudeMdMaxLines: 200
+onFailure:
+  strategy: escalate_to_human
+  maxRetries: 2
+  escalationChannel: slack

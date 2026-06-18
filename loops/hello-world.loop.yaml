@@ -1,0 +1,36 @@
+id: hello-world-loop
+name: Hello World TDD Loop
+description: 给定编程任务，Agent自动写代码、跑测试、修复、循环直到通过
+trigger:
+  type: manual
+  commandName: hello-loop
+execution:
+  maxIterations: 10
+  maxTokensPerIter: 20000
+  timeoutSeconds: 600
+  useWorktree: true
+  worktreeMode: fresh
+eval:
+  judgeModel: claude-sonnet-4-6
+  threshold: 0.7
+  maxRetries: 5
+  stagnantRounds: 3
+  conditions:
+    - type: command_exit_code
+      command: echo test
+      expected: 0
+      description: Smoke test passes
+  boundaryConditions:
+    - type: no_file_deleted
+      path: "."
+      description: No files deleted
+skills:
+  - test-driven-development
+  - systematic-debugging
+memory:
+  autoNudge: true
+  autoSkillCreation: false
+  claudeMdMaxLines: 200
+onFailure:
+  strategy: escalate_to_human
+  maxRetries: 3
