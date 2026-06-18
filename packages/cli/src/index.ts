@@ -63,4 +63,9 @@ program.command("remove").description("删除一个 Loop").argument("<name>", "�
   await removeCommand(name);
 });
 
+program.command("export").description("导出知识库为 CLAUDE.md 格式").option("-o, --output <path>", "输出文件路径", ".mobius/CLAUDE.md").action(async (opts: { output: string }) => {
+  const { exportCommand } = await import("./commands/export.js");
+  await exportCommand(opts.output);
+});
+
 program.parse();

@@ -14,10 +14,22 @@ export async function createLoopCommand(userInput: string, explicitName?: string
 
   const systemPrompt = readFileSync(resolve(__dirname, "../../../core/src/generator/prompts/generate-loop.system.md"), "utf-8");
 
-  const mockLLM: LLMClient = {
-    complete: async (p: string, _s: string) => generateFromTemplate(p, explicitName),
-  };
-  const generator = new LoopGenerator(mockLLM, systemPrompt);
+  // Phase 2: Use real LLM when available, fallback to template
+  const llmApiKey = process.env.ANTHROPIC_API_KEY || "";
+  const useRealLLM = !!llmApiKey;
+  let llmClient: LLMClient;
+
+  if (useRealLLM) {
+    const { AnthropicClient } = await import("@mobius/core/llm/anthropic-client.js");
+    llmClient = new AnthropicClient({ apiKey: llmApiKey });
+    console.log("[Mobius] 使用真实 LLM 生成 Loop 定义");
+  } else {
+    llmClient = {
+      complete: async (p: string, _s: string) => generateFromTemplate(p, explicitName),
+    };
+    console.log("[Mobius] 使用模板生成 (设置 ANTHROPIC_API_KEY 启用 AI 生成)");
+  }
+  const generator = new LoopGenerator(llmClient, systemPrompt);
   const result = await generator.generate(userInput);
   const def = result.definition;
   const loopId = explicitName || def.id;

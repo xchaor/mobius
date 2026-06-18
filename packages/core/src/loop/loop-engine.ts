@@ -1,5 +1,7 @@
 import { LoopDefinition } from "./loop-definition.js";
 import { LoopState, LoopPhase, createLoopState, transition, isTerminalPhase } from "./loop-state.js";
+import type { AgentCore } from "../agent/agent-core.js";
+import type { LLMClient } from "../llm/llm-client.js";
 
 export interface ToolExecutor {
   execute(toolName: string, params: Record<string, unknown>): Promise<ToolResult>;
@@ -43,6 +45,10 @@ export interface LoopEngineConfig {
   toolExecutor: ToolExecutor;
   evalJudge: EvalJudge;
   memoryWriter: MemoryWriter;
+  /** Phase 2: LLM-driven agent core. When set, executePhase uses real LLM tool-use loop. */
+  agentCore?: AgentCore;
+  /** Phase 2: LLM client for agent messages. */
+  llmClient?: LLMClient;
   onPhaseChange?: (state: LoopState) => void;
   onError?: (error: Error, state: LoopState) => void;
 }
@@ -123,6 +129,24 @@ export class LoopEngine {
   }
 
   private async executePhase(taskContext: string): Promise<string> {
+    // Phase 2: Use AgentCore (LLM-driven tool-use loop) if available
+    if (this.config.agentCore) {
+      const agentResult = await this.config.agentCore.run(taskContext);
+      if (agentResult.artifacts) this.state.artifacts.push(...agentResult.artifacts);
+
+      // Track actual token usage from the agent
+      this.state.budget.consumeIteration(agentResult.totalUsage.inputTokens + agentResult.totalUsage.outputTokens);
+      this.state.totalTokensUsed = this.state.budget.tokensUsed;
+
+      return JSON.stringify({
+        output: agentResult.output,
+        steps: agentResult.steps.length,
+        toolCalls: agentResult.steps.filter(s => s.type === "tool_exec").length,
+        tokens: agentResult.totalUsage,
+      });
+    }
+
+    // Phase 1 fallback: direct tool executor (mock)
     const result = await this.config.toolExecutor.execute("run_task", {
       context: taskContext, skills: this.config.definition.skills, iteration: this.state.iteration,
     });

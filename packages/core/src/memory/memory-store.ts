@@ -75,6 +75,21 @@ export class MemoryStore implements MemoryWriter {
     return this.db.prepare("SELECT id, name, description, content_markdown as content, confidence, occurrence_count as occurrenceCount FROM skill_suggestions WHERE occurrence_count >= ? AND status = 'pending' ORDER BY confidence DESC").all(minOccurrence) as any[];
   }
 
+  // ── Phase 2: CLAUDE.md export support ──
+
+  getActiveEntries(limit: number = 200): Array<{ type: string; content: string; confidence: number }> {
+    return this.db.prepare(
+      "SELECT type, content, confidence FROM memory_entries WHERE status = 'active' ORDER BY confidence DESC, created_at DESC LIMIT ?"
+    ).all(limit) as Array<{ type: string; content: string; confidence: number }>;
+  }
+
+  removeLowConfidence(threshold: number = 0.3): number {
+    const result = this.db.prepare(
+      "UPDATE memory_entries SET status = 'expired' WHERE status = 'active' AND confidence < ?"
+    ).run(threshold);
+    return result.changes;
+  }
+
   addGuardrailRule(ruleName: string, description: string, patternType: string, config: Record<string, unknown>): void {
     this.db.prepare("INSERT OR REPLACE INTO guardrail_rules (rule_name, description, pattern_type, config_json) VALUES (?, ?, ?, ?)").run(ruleName, description, patternType, JSON.stringify(config));
   }
