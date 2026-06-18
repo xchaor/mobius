@@ -18,11 +18,26 @@ export async function createLoopCommand(userInput: string, explicitName?: string
   const { getDefaultLLMClient } = await import("@mobius/core/llm/default-client.js");
   const llmClient = getDefaultLLMClient();
   console.log(`[Mobius] 使用真实 LLM 生成 Loop 定义`);
+
+  // Tell LLM the explicit name so YAML id matches
+  const promptWithName = explicitName
+    ? `Loop id must be: ${explicitName}\n\n${userInput}`
+    : userInput;
+
   const generator = new LoopGenerator(llmClient, systemPrompt);
-  const result = await generator.generate(userInput);
+  const result = await generator.generate(promptWithName);
   const def = result.definition;
   const loopId = explicitName || def.id;
   def.id = loopId;
+
+  // Post-process: enforce minimums for reliable execution
+  if (def.execution.maxIterations < 5) def.execution.maxIterations = 5;
+  def.execution.useWorktree = true;
+
+  // Regenerate YAML with fixed values for registry
+  const { serializeLoopDefinition } = await import("@mobius/core/loop/loop-parser.js");
+  const fixedYaml = serializeLoopDefinition(def);
+  result.yaml = fixedYaml;
 
   const dbPath = resolve(process.cwd(), ".mobius", "mobius.db");
   mkdirSync(dirname(dbPath), { recursive: true });

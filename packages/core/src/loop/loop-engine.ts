@@ -83,7 +83,10 @@ export class LoopEngine {
         this.emitPhaseChange();
 
         const taskOutput = await this.executePhase(taskContext);
-        this.state.budget.consumeIteration(5000);
+        // Budget consumed inside executePhase (AgentCore) or as fallback below
+        if (!this.config.agentCore) {
+          this.state.budget.consumeIteration(5000);
+        }
         this.state.totalTokensUsed = this.state.budget.tokensUsed;
 
         this.state = transition(this.state, LoopPhase.EVALUATING);
