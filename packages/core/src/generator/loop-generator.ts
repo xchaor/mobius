@@ -22,8 +22,14 @@ export class LoopGenerator {
 
   async generate(userInput: string): Promise<GeneratorResult> {
     const warnings: string[] = [];
-    const rawYaml = await this.llm.complete(userInput, this.systemPrompt);
-    const yamlContent = this.extractYaml(rawYaml);
+    const response = await this.llm.complete({
+      messages: [
+        { role: "system", content: this.systemPrompt },
+        { role: "user", content: userInput },
+      ],
+      maxTokens: 2000,
+    });
+    const yamlContent = this.extractYaml(response.content);
 
     let definition: LoopDefinition;
     try {

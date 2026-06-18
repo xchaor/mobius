@@ -10,7 +10,6 @@ import { LocalExecutor } from "@mobius/core/executor/local-executor.js";
 import { SimpleGuardrails } from "@mobius/core/guardrails/simple-guardrails.js";
 import { Gateway } from "@mobius/gateway/gateway.js";
 import { AgentCore } from "@mobius/core/agent/agent-core.js";
-import { AnthropicClient } from "@mobius/core/llm/anthropic-client.js";
 import { BUILTIN_TOOLS } from "@mobius/core/tools/builtin-tools.js";
 import { randomUUID } from "crypto";
 
@@ -44,39 +43,35 @@ export async function runLoopCommand(name: string): Promise<void> {
 
   const guardrails = new SimpleGuardrails();
 
-  // Phase 2: Use real LLM if API key is available
-  const llmApiKey = process.env.ANTHROPIC_API_KEY || "";
-  const useRealLLM = !!llmApiKey;
+  // Phase 2: Default LLM (DeepSeek built-in) driving AgentCore
+  const { getDefaultLLMClient } = await import("@mobius/core/llm/default-client.js");
+  const llmClient = getDefaultLLMClient();
 
-  let agentCore: AgentCore | undefined;
-  if (useRealLLM) {
-    const llmClient = new AnthropicClient({ apiKey: llmApiKey });
-    agentCore = new AgentCore({
-      llm: llmClient,
-      tools: BUILTIN_TOOLS,
-      toolExecutor: new LocalExecutor({ cwd: worktreeRoot }, guardrails),
-      systemPrompt: [
-        "You are a software engineering agent in the Möbius Agent platform.",
-        "Your task is to write code, run tests, and iterate until all tests pass.",
-        "Available tools: write_file, read_file, append_file, run_command, list_dir.",
-        "Workflow:",
-        "1. Use write_file to create source files and test files",
-        "2. Use run_command to run tests (e.g., 'npx vitest run')",
-        "3. If tests fail, read the error output, fix the code, and run tests again",
-        "4. When all tests pass, respond with a summary of what you did",
-        "Be thorough. Write real, working code.",
-      ].join("\n"),
-      model: "claude-sonnet-4-6",
-      maxIterations: definition.execution.maxIterations,
-      onStep: (step) => {
-        if (step.type === "tool_exec" && step.toolResults) {
-          for (const r of step.toolResults) {
-            console.log(`  [tool] ${r.success ? "✓" : "✗"} ${!r.success && r.error ? r.error.slice(0, 60) : r.output.slice(0, 60)}`);
-          }
+  const agentCore = new AgentCore({
+    llm: llmClient,
+    tools: BUILTIN_TOOLS,
+    toolExecutor: new LocalExecutor({ cwd: worktreeRoot }, guardrails),
+    systemPrompt: [
+      "You are a software engineering agent in the Möbius Agent platform.",
+      "Your task is to write code, run tests, and iterate until all tests pass.",
+      "Available tools: write_file, read_file, append_file, run_command, list_dir.",
+      "Workflow:",
+      "1. Use write_file to create source files and test files",
+      "2. Use run_command to run tests (e.g., 'npx vitest run')",
+      "3. If tests fail, read the error output, fix the code, and run tests again",
+      "4. When all tests pass, respond with a summary of what you did",
+      "Be thorough. Write real, working code.",
+    ].join("\n"),
+    model: "deepseek-chat",
+    maxIterations: definition.execution.maxIterations,
+    onStep: (step) => {
+      if (step.type === "tool_exec" && step.toolResults) {
+        for (const r of step.toolResults) {
+          console.log(`  [tool] ${r.success ? "✓" : "✗"} ${!r.success && r.error ? r.error.slice(0, 60) : r.output.slice(0, 60)}`);
         }
-      },
-    });
-  }
+      }
+    },
+  });
 
   const config: LoopEngineConfig = {
     definition,

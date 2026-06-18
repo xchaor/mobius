@@ -3,7 +3,7 @@ import { resolve, dirname } from "path";
 import { mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
-import { LoopGenerator, LLMClient } from "@mobius/core/generator/loop-generator.js";
+import { LoopGenerator } from "@mobius/core/generator/loop-generator.js";
 import { LoopRegistry } from "@mobius/core/registry/loop-registry.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -14,21 +14,10 @@ export async function createLoopCommand(userInput: string, explicitName?: string
 
   const systemPrompt = readFileSync(resolve(__dirname, "../../../core/src/generator/prompts/generate-loop.system.md"), "utf-8");
 
-  // Phase 2: Use real LLM when available, fallback to template
-  const llmApiKey = process.env.ANTHROPIC_API_KEY || "";
-  const useRealLLM = !!llmApiKey;
-  let llmClient: LLMClient;
-
-  if (useRealLLM) {
-    const { AnthropicClient } = await import("@mobius/core/llm/anthropic-client.js");
-    llmClient = new AnthropicClient({ apiKey: llmApiKey });
-    console.log("[Mobius] 使用真实 LLM 生成 Loop 定义");
-  } else {
-    llmClient = {
-      complete: async (p: string, _s: string) => generateFromTemplate(p, explicitName),
-    };
-    console.log("[Mobius] 使用模板生成 (设置 ANTHROPIC_API_KEY 启用 AI 生成)");
-  }
+  // Phase 2: Default LLM (DeepSeek built-in key, or env override)
+  const { getDefaultLLMClient } = await import("@mobius/core/llm/default-client.js");
+  const llmClient = getDefaultLLMClient();
+  console.log(`[Mobius] 使用真实 LLM 生成 Loop 定义`);
   const generator = new LoopGenerator(llmClient, systemPrompt);
   const result = await generator.generate(userInput);
   const def = result.definition;
@@ -61,11 +50,4 @@ export async function createLoopCommand(userInput: string, explicitName?: string
   db.close();
 }
 
-function generateFromTemplate(userInput: string, explicitName?: string): string {
-  const id = explicitName || userInput.slice(0, 30).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "auto-loop";
-  const isRecurring = /每|每天|每周|定时|早上|晚上|下午|自动/.test(userInput);
-  const triggerType = isRecurring ? "cron" : "manual";
-  const cronExpr = /早上|上午/.test(userInput) ? "0 9 * * *" : /下午/.test(userInput) ? "0 14 * * *" : /每.*小时/.test(userInput) ? "0 */2 * * *" : /每天/.test(userInput) ? "0 9 * * *" : "0 */2 * * *";
-
-  return `id: ${id}\nname: ${userInput.slice(0, 30)}\ndescription: ${userInput}\ntrigger:\n  type: ${triggerType}\n  ${triggerType === "cron" ? `cronExpression: "${cronExpr}"` : `commandName: ${id}`}\nexecution:\n  maxIterations: 10\n  useWorktree: true\neval:\n  threshold: 0.7\n  conditions:\n    - type: command_exit_code\n      command: echo test\n      expected: 0\n      description: Smoke test passes\n  boundaryConditions:\n    - type: no_file_deleted\n      path: "."\n      description: No files deleted\nskills:\n  - test-driven-development\n  - systematic-debugging\nmemory:\n  autoNudge: true\nonFailure:\n  strategy: retry\n  maxRetries: 3\n`;
-}
+// LLM client provided by getDefaultLLMClient() — no template fallback needed.

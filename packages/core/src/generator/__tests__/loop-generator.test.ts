@@ -3,7 +3,7 @@ import { LoopGenerator } from "../loop-generator.js";
 
 const SP = "You are a Loop Engineering expert.";
 
-class MockLLM { constructor(private r: string) {} async complete(): Promise<string> { return this.r; } }
+class MockLLM { constructor(private r: string) {} async complete(_params: any): Promise<{ content: string; toolCalls: any[]; model: string }> { return { content: this.r, toolCalls: [], model: "mock" }; } }
 
 describe("LoopGenerator", () => {
   it("generates valid loop from NL", async () => {
