@@ -99,6 +99,24 @@ export async function runLoopCommand(name: string): Promise<void> {
   console.log(`\n${result.phase === LoopPhase.COMPLETED ? "✅" : result.phase === LoopPhase.STAGNANT ? "🟡" : "❌"} Loop ${result.phase}`);
   console.log(`  迭代: ${result.iteration}  分数: ${result.lastEvalScore?.toFixed(2) ?? "N/A"}  产物: ${result.artifacts.length} 文件`);
 
+  // Show generated source files
+  const { readdirSync, statSync, readFileSync } = await import("fs");
+  try {
+    const srcDir = `${worktreeRoot}/src`;
+    const files = readdirSync(srcDir);
+    console.log(`\n📁 生成的源码: ${worktreeRoot}/src/`);
+    for (const f of files.filter(f => f.endsWith(".ts") || f.endsWith(".js"))) {
+      const size = statSync(`${srcDir}/${f}`).size;
+      console.log(`   ${f} (${size} bytes)`);
+    }
+    // Print the main source file content
+    const tsFiles = files.filter(f => f.endsWith(".ts") && !f.includes(".test") && !f.includes(".spec"));
+    if (tsFiles.length > 0) {
+      console.log(`\n📝 ${tsFiles[0]}:`);
+      console.log(readFileSync(`${srcDir}/${tsFiles[0]}`, "utf-8"));
+    }
+  } catch {}
+
   await gateway.stop();
   memoryStore.close();
   db.close();

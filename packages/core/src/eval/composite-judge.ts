@@ -4,15 +4,28 @@ import { CommandBasedJudge } from "./command-judge.js";
 
 export class MockLLMJudge {
   async evaluate(_state: LoopState, taskOutput: string): Promise<{ score: number; reasoning: string; suggestions: string[] }> {
-    const hasCode = taskOutput.includes("function") || taskOutput.includes("class") || taskOutput.includes("export") || taskOutput.includes("Wrote");
-    const hasTests = taskOutput.includes("test") || taskOutput.includes("describe") || taskOutput.includes("it(");
-    const hasError = taskOutput.includes("Error") || taskOutput.includes("FAIL") || taskOutput.includes("FORBIDDEN");
+    // Check for common success indicators in the agent output
+    const hasPassingTests = /Tests\s+\d+\s+passed|All tests passing|✓.*test|PASS/i.test(taskOutput);
+    const hasCodeOutput = taskOutput.includes("function") || taskOutput.includes("class") || taskOutput.includes("export") || taskOutput.includes("Wrote");
+    const hasTestFile = taskOutput.includes(".test.ts") || taskOutput.includes(".spec.ts") || taskOutput.includes("describe") || taskOutput.includes("it(");
+    const hasError = /FAIL|Error:|FORBIDDEN|failed/i.test(taskOutput) && !hasPassingTests;
 
     let score = 0.5;
-    if (hasCode && hasTests) score = 0.8;
+    if (hasCodeOutput && hasTestFile) score = 0.7;
+    if (hasPassingTests) score = 0.85;
     if (hasError) score = Math.max(0.2, score - 0.4);
 
-    return { score, reasoning: `[Phase 1 mock] Code:${hasCode} Tests:${hasTests} Errors:${hasError}`, suggestions: hasError ? ["Fix errors detected in output"] : [] };
+    const reasons: string[] = [];
+    if (hasCodeOutput) reasons.push("code written");
+    if (hasTestFile) reasons.push("tests written");
+    if (hasPassingTests) reasons.push("tests passing");
+    if (hasError) reasons.push("errors detected");
+
+    return {
+      score,
+      reasoning: `[Mock] ${reasons.join(", ") || "no clear signal"}. Score: ${score}`,
+      suggestions: hasError ? ["Fix errors detected in output"] : [],
+    };
   }
 }
 
